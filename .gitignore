@@ -1,0 +1,28 @@
+# === CMake ===
+# Ignore the entire build directory (standard practice)
+build/
+Build/
+out/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+cmake-build-debug/
+install/
+Makefile
+*.cmake
+
+vcpkg_installed/
+
+vcpkg/packages/
+vcpkg/buildtrees/
+vcpkg/downloads/
+
+.vs/
+.vscode/
+bin/
+obj/
+.idea/
+.cache/
+
+compile_commands.json
