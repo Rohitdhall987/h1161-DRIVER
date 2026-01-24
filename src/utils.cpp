@@ -9,6 +9,5 @@
 
 void print(const std::string str) {
     if (!RELEASE) {
-        std::cout << str << std::endl;
-    }
+        std::cout << "printing: " << str << std::endl;  }
 }
