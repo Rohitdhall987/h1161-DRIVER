@@ -7,11 +7,14 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <iostream>
+#include <ostream>
 #include <unistd.h>
 
 #include "hid_monitor.h"
 #include "hid_reader.h"
 #include "utils.h"
+#include "tablet_parser.h"
 
 int main() {
     std::string device_hid_path;
@@ -27,6 +30,8 @@ int main() {
 
     HIDReader* reader = nullptr;
     std::string current_path;
+
+    tablet::TabletParser parser;
 
     while (true) {
         // Check if device path changed
@@ -60,6 +65,18 @@ int main() {
 
             if (reader->read(data)) {
                 //TODO: parse data and create virtual input
+                tablet::TabletEvent ev = parser.parse(data);
+                if (ev.type == tablet::ReportType::Pen) {
+                    print("pen movement");
+                } else if (ev.type == tablet::ReportType::SideButtons) {
+
+                    std::cout<< "button: " << ev.side.index << std::endl;
+
+                } else if (ev.type == tablet::ReportType::TouchStrip) {
+                    print("touch strip");
+                }else if (ev.type == tablet::ReportType::Unknown) {
+                    print("unknown event");
+                }
             } else {
                 printerr("Read failed, device may be disconnected");
                 delete reader;

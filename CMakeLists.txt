@@ -12,6 +12,7 @@ set(SOURCES
         src/utils.cpp
         src/hid_reader.cpp
         src/hid_monitor.cpp
+        src/tablet_parser.cpp
 )
 
 add_executable(h1161-driver ${SOURCES})

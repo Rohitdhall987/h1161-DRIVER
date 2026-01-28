@@ -41,7 +41,7 @@ bool HIDReader::init() {
     return true;
 }
 
-bool HIDReader::read(std::vector<uint8_t>& data) const {
+bool HIDReader::    read(std::vector<uint8_t>& data) const {
     struct pollfd pfd{};
     pfd.fd = fd;
     pfd.events = POLLIN;
