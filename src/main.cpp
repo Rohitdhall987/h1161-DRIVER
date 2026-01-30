@@ -7,14 +7,13 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
-#include <iostream>
-#include <ostream>
 #include <unistd.h>
 
 #include "hid_monitor.h"
 #include "hid_reader.h"
 #include "utils.h"
 #include "tablet_parser.h"
+#include "virtual_input.h"
 
 int main() {
     std::string device_hid_path;
@@ -33,10 +32,13 @@ int main() {
 
     tablet::TabletParser parser;
 
+    tablet::VirtualPad pad;
+    pad.create();
+
     while (true) {
         // Check if device path changed
         if (path_updated.exchange(false)) {
-            std::lock_guard<std::mutex> lock(path_mutex);
+            std::lock_guard lock(path_mutex);
 
             if (device_hid_path != current_path) {
                 if (reader) {
@@ -69,8 +71,18 @@ int main() {
                 if (ev.type == tablet::ReportType::Pen) {
                     print("pen movement");
                 } else if (ev.type == tablet::ReportType::SideButtons) {
+                    static int last = -1;
 
-                    std::cout<< "button: " << ev.side.index << std::endl;
+                    if (ev.side.index != last) {
+                        if (last != -1)
+                            pad.send_button(last, false);
+
+                        if (ev.side.index != -1)
+                            pad.send_button(ev.side.index, true);
+
+                        last = ev.side.index;
+                    }
+
 
                 } else if (ev.type == tablet::ReportType::TouchStrip) {
                     print("touch strip");
@@ -88,9 +100,4 @@ int main() {
             usleep(100000);
         }
     }
-
-    if (reader) delete reader;
-    monitor_thread.join();
-
-    return 0;
 }
