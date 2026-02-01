@@ -33,7 +33,9 @@ int main() {
     tablet::TabletParser parser;
 
     tablet::VirtualPad pad;
+    tablet::VirtualWheel wheel;
     pad.create();
+    wheel.create();
 
     while (true) {
         // Check if device path changed
@@ -85,7 +87,8 @@ int main() {
 
 
                 } else if (ev.type == tablet::ReportType::TouchStrip) {
-                    print("touch strip");
+                    // print(std::to_string(ev.touch.value));
+                    wheel.handle_touch(ev.touch.active, ev.touch.value);
                 }else if (ev.type == tablet::ReportType::Unknown) {
                     print("unknown event");
                 }

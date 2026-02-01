@@ -10,21 +10,20 @@
 
 namespace tablet {
 
-    class VirtualPen {
+    class VirtualWheel {
+        int fd = -1;
+        int last_value = 0;
+        bool tracking = false;
+
     public:
-        VirtualPen();
-        ~VirtualPen();
+        VirtualWheel();
+        ~VirtualWheel();
 
         bool create();
         void destroy();
-
-        void send_pen(bool in_range, bool tip,
-                      bool btn1, bool btn2,
-                      int x, int y, int pressure);
-
-    private:
-        int fd = -1;
+        void handle_touch(bool active, int value);
     };
+
 
     class VirtualPad {
     public:

@@ -22,48 +22,43 @@ static void emit(int fd, int type, int code, int value) {
 }
 
 // =======================
-// VirtualPen
+// VirtualWheel
 // =======================
-VirtualPen::VirtualPen() {}
-VirtualPen::~VirtualPen() { destroy(); }
+VirtualWheel::VirtualWheel() {}
 
-bool VirtualPen::create() {
+VirtualWheel::~VirtualWheel() {
+destroy();
+}
+    bool VirtualWheel::create() {
     fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
     if (fd < 0) return false;
 
-    ioctl(fd, UI_SET_EVBIT, EV_KEY);
-    ioctl(fd, UI_SET_EVBIT, EV_ABS);
+    // Enable events
+    ioctl(fd, UI_SET_EVBIT, EV_REL);
+    ioctl(fd, UI_SET_EVBIT, EV_SYN);
 
-    ioctl(fd, UI_SET_KEYBIT, BTN_TOOL_PEN);
-    ioctl(fd, UI_SET_KEYBIT, BTN_TOUCH);
-    ioctl(fd, UI_SET_KEYBIT, BTN_STYLUS);
-    ioctl(fd, UI_SET_KEYBIT, BTN_STYLUS2);
+    // Enable scroll wheel
+    ioctl(fd, UI_SET_RELBIT, REL_WHEEL);
+    ioctl(fd, UI_SET_RELBIT, REL_WHEEL_HI_RES);  // For smoother scrolling
 
-    ioctl(fd, UI_SET_ABSBIT, ABS_X);
-    ioctl(fd, UI_SET_ABSBIT, ABS_Y);
-    ioctl(fd, UI_SET_ABSBIT, ABS_PRESSURE);
+    struct uinput_setup usetup{};
+    snprintf(usetup.name, UINPUT_MAX_NAME_SIZE, "Huion H1161 Scroll Wheel");
+    usetup.id.bustype = BUS_USB;
+    usetup.id.vendor  = 0x1;
+    usetup.id.product = 0x2;
+    usetup.id.version = 1;
 
-    uinput_user_dev dev{};
-    snprintf(dev.name, UINPUT_MAX_NAME_SIZE, "Huion H1161 Pen");
-    dev.id.bustype = BUS_USB;
-    dev.id.vendor  = 0x256C;
-    dev.id.product = 0x006D;
-    dev.id.version = 1;
-
-    dev.absmin[ABS_X] = 0;
-    dev.absmax[ABS_X] = 65535;
-    dev.absmin[ABS_Y] = 0;
-    dev.absmax[ABS_Y] = 65535;
-    dev.absmin[ABS_PRESSURE] = 0;
-    dev.absmax[ABS_PRESSURE] = 8192;
-
-    write(fd, &dev, sizeof(dev));
+    ioctl(fd, UI_DEV_SETUP, &usetup);
     ioctl(fd, UI_DEV_CREATE);
 
+    sleep(1);
     return true;
 }
 
-void VirtualPen::destroy() {
+
+
+
+void VirtualWheel::destroy() {
     if (fd >= 0) {
         ioctl(fd, UI_DEV_DESTROY);
         close(fd);
@@ -71,20 +66,58 @@ void VirtualPen::destroy() {
     }
 }
 
-void VirtualPen::send_pen(bool in_range, bool tip,
-                          bool btn1, bool btn2,
-                          int x, int y, int pressure) {
-    emit(fd, EV_KEY, BTN_TOOL_PEN, in_range);
-    emit(fd, EV_KEY, BTN_TOUCH, tip);
-    emit(fd, EV_KEY, BTN_STYLUS, btn1);
-    emit(fd, EV_KEY, BTN_STYLUS2, btn2);
+    void VirtualWheel::handle_touch(bool active, int value) {
+    if (fd < 0) return;
 
-    emit(fd, EV_ABS, ABS_X, x);
-    emit(fd, EV_ABS, ABS_Y, y);
-    emit(fd, EV_ABS, ABS_PRESSURE, pressure);
+    // FIX 1: When finger lifted, DON'T process the jump to 0
+    if (!active || value == 0) {
+        tracking = false;
+        last_value = 0;
+        return;
+    }
+
+    // First contact - initialize, don't scroll
+    if (!tracking) {
+        tracking = true;
+        last_value = value;
+        return;
+    }
+
+    int delta = value - last_value;
+    last_value = value;
+
+    // FIX 2: Ignore huge jumps (errors/noise)
+    if (abs(delta) > 300) {
+        return;  // Don't scroll on big jumps
+    }
+
+    // Ignore tiny movements
+    if (abs(delta) < 15) return;
+
+    // Direction: sliding DOWN (value increases) = scroll DOWN
+    int direction = (delta > 0) ? -1 : 1;
+
+    // FIX 3: Use high-res wheel for smoother scrolling
+    // High-res gives 120 units per "notch"
+    int hi_res_amount = abs(delta) * 3;  // Adjust multiplier for sensitivity
+
+    emit(fd, EV_REL, REL_WHEEL_HI_RES, direction * hi_res_amount);
+
+    // FIX 4: Send standard wheel events less frequently for compatibility
+    // Only send a "click" for larger movements
+    if (abs(delta) >= 20) {
+        int steps = abs(delta) / 20;
+        if (steps > 3) steps = 3;  // Cap to prevent huge jumps
+
+        for (int i = 0; i < steps; i++) {
+            emit(fd, EV_REL, REL_WHEEL, direction);
+        }
+    }
 
     emit(fd, EV_SYN, SYN_REPORT, 0);
 }
+
+
 
 // =======================
 // VirtualPad
